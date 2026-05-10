@@ -150,6 +150,17 @@ function analyzeFile(file) {
     }
 }
 
+// Formats bytes to KBs or MBs
+function formatBytes(bytes) {
+    if (bytes < 1024 * 1024) {
+        const kb = bytes / 1024;
+        return `${kb.toFixed(2)} KB`;
+    } else {
+        const mb = bytes / (1024 * 1024);
+        return `${mb.toFixed(2)} MB`;
+    }
+}
+
 window.onload = () => {
     const uploadSection = document.getElementById("upload-section");
     const analysisSection = document.getElementById("analysis-section");
@@ -188,18 +199,25 @@ window.onload = () => {
     });
 
     // On download progress
-    detectItEasy.emulator.add_listener("download-progress", (e) => {
-        const percent = Math.round((e.loaded / (!e.total ? e.loaded : e.total)) * 100);
-        emulatorDownloadProgress.textContent = `File ${e.file_name} (${e.file_index + 1}/${e.file_count}): ${percent}%`;
+    emulator.add_listener("download-progress", (e) => {
+        const percent = Math.round((e.loaded / e.total) * 100);
+
+        const loadedStr = formatBytes(e.loaded);
+        const totalStr = formatBytes(e.total);
+
+        document.getElementById("download-progress-big").innerHTML = `File ${e.file_index + 1}/${e.file_count}: <strong>${e.file_name}</strong>`
+        document.getElementById("download-progress-small").innerHTML = `${percent}% (${loadedStr} / ${totalStr})`
+        document.getElementById("download-progress-bar").style.width = `${percent}%`;
     });
+
     // On download error
     detectItEasy.emulator.add_listener("download-error", (e) => {
-        emulatorDownloadProgress.textContent = `Loading ${e.file_name} failed. Check your connection and reload the page to try again.`;
+        emulatorDownloadProgress.innerHTML = `Loading <strong>${e.file_name}</strong> failed. Check your connection and reload the page to try again.`;
     });
 
     // Emulator ready
     detectItEasy.emulator.add_listener("emulator-ready", () => {
-        emulatorDownloadProgress.textContent = "";
+        emulatorDownloadProgress.style.display = "none";
         uploadSection.style.opacity = "1";
         uploadSection.style.pointerEvents = "auto";
         fileInput.disabled = false;

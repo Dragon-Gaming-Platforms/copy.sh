@@ -53,3 +53,28 @@
     border-bottom: none;
     margin-bottom: 0;
 }
+
+#emulator-download-progress {
+    font-size: 1.5em;
+    margin-top: 0.85em;
+    margin-bottom: 0.85em;
+    text-align: center;
+}
+
+#download-progress-small {
+    font-size: 0.9em;
+    color: #555;
+}
+
+#download-progress-bar-bg {
+    background: #eee;
+    height: 6px;
+    border-radius: 3px;
+    margin-top: 5px;
+}
+
+#download-progress-bar {
+    background: #3daee9;
+    height: 100%;
+    border-radius: 3px;
+}
