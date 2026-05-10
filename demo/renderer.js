@@ -192,7 +192,7 @@ function sectionCharacteristicToString(value) {
 
 // Generates HTML for sections
 function renderSections(sections) {
-    if (sections?.data?.IMAGE_SECTION_HEADER) {
+    if (sections?.IMAGE_SECTION_HEADER) {
         let html = `<table><thead><tr>
         <th>#</th>
         <th>Name</th>
@@ -202,7 +202,7 @@ function renderSections(sections) {
         <th>Size</th>
         <th>Flags</th>
         </tr></thead><tbody>`;
-        Object.entries(sections.data.IMAGE_SECTION_HEADER).forEach(([key, value]) => {
+        Object.entries(sections.IMAGE_SECTION_HEADER).forEach(([key, value]) => {
             html += `<tr>
             <td>${key}</td>
             <td>${escapeHtml(value.Name)}</td>

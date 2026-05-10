@@ -62,7 +62,7 @@ function getDieFlags() {
 function analyzeFile(file) {
     if (detectItEasy) {
         document.getElementById("analysesResults").innerHTML = "";
-        
+
         alert("Starting analysis");
         fileToUint8Array(file).then(bytes => {
             detectItEasy.createFileAndAnalyze(bytes, getDieFlags(), (type, res) => {
@@ -72,7 +72,7 @@ function analyzeFile(file) {
                 const textArea = document.createElement("textarea");
                 textArea.rows = "20";
                 textArea.cols = "100";
-                
+
                 if (typeof res === 'object') {
                     textArea.value = JSON.stringify(res, null, "\t");
                 } else {
@@ -93,11 +93,8 @@ window.onload = () => {
         bios: {
             url: "seabios.bin",
         },
-        vga_bios: {
-            url: "vgabios.bin",
-        },
         initial_state: {
-            url: "buildroot-state.bin.zst"
+            url: "v86state.bin.zst"
         },
     });
 

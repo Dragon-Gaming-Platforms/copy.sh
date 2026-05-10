@@ -24,7 +24,7 @@ powerful static binary analyzer — entirely inside your browser using the
   guest OS;
 - [**v86**](https://github.com/copy/v86) – x86 emulator in
   JavaScript/WebAssembly;
-- [**Detect It Easy 3.2.0 (`diec`)**](https://github.com/horsicq/Detect-It-Easy)
+- [**Detect It Easy 3.2.1 (`diec`)**](https://github.com/horsicq/Detect-It-Easy)
   – console version of DIE for headless analysis;
 - **Docker** – for reproducible builds;
 
@@ -34,7 +34,7 @@ powerful static binary analyzer — entirely inside your browser using the
 
 📂 **[Source Code](demo)** – demo source code
 
-> ⚠️ Everything runs in your browser — the initial load includes a ~25 MB
+> ⚠️ Everything runs in your browser — the initial load includes a ~17 MB
 > emulator state file. Also, large binaries may take longer to analyze.
 
 ## 📦 Use as a Library
@@ -47,11 +47,11 @@ Download everything you need from the
 **[Releases](https://github.com/xoreaxlmbdx/die-in-browser/releases)** page:
 
 - `v86.wasm`, `libv86.js`
-- BIOS files (`seabios.bin`, `vgabios.bin`)
-- Compressed emulator state (`buildroot-state.bin.zst`)
+- `seabios.bin`
+- Compressed emulator state (`v86state.bin.zst`)
 
-> 💡 The `buildroot-state.bin.zst` file contains a full snapshot of the Linux
-> system with DIE preinstalled and is approximately **25 MB** in size.
+> 💡 The `v86state.bin.zst` file contains a full snapshot of the Linux
+> system with DIE preinstalled and is approximately **17 MB** in size.
 
 ### Option 2: Build it yourself
 
@@ -77,9 +77,9 @@ cd die-in-browser
 The build output will appear in `./build/` and includes:
 
 - `v86.wasm`, `libv86.js`
-- `seabios.bin`, `vgabios.bin`
+- `seabios.bin`
 - `licenses.tar.gz`
-- `v86state-*.bin.zst` (compressed emulator snapshot)
+- `buildroot-state.bin.zst` (compressed emulator snapshot)
 
 ## 🙌 Acknowledgements
 

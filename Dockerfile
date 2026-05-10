@@ -1,42 +1,43 @@
 # --- Stage 1. Builds DIE.
 
-FROM i386/debian:bullseye AS builder
+FROM i386/alpine AS builder
 
-RUN apt-get update && \
-    apt-get install -y \
-        qtbase5-dev \
-        qtscript5-dev \
-        qttools5-dev-tools \
-        libqt5svg5-dev \
-        git \
-        lsb-release \
-        wget \
-        unzip \
-        build-essential && \
-    rm -rf /var/lib/apt/lists/*
+# Install build dependencies
+RUN apk add --no-cache \
+    build-base \
+    qt5-qtbase-dev \
+    qt5-qtscript-dev \
+    qt5-qttools-dev \
+    qt5-qtsvg-dev \
+    pkgconfig \
+    git \
+    make \
+    bash
 
 # Clones latest DIE
-RUN git clone --recursive https://github.com/horsicq/DIE-engine.git
+RUN git clone --recursive --branch 3.21 https://github.com/horsicq/DIE-engine.git
 
 WORKDIR /DIE-engine
 
-# Builds diec. It may fail to build the GUI version (die), so the script may exit with code 2, it suppresses this error
-RUN bash -x build_dpkg.sh || true
-RUN test -f build/release/diec
+# Initialize the build environment
+RUN cp -f build_tools/build.pri .
 
-# Copy diec & all libs to /build
+# Build the engine
+RUN qmake die_source.pro "DEFINES+=QT_NO_DEBUG_OUTPUT" && \
+    make -j$(nproc)
+
+# Strip symbols
+RUN strip build/release/diec
+
+# Copy the binary
 RUN mkdir /build && \
-    cp build/release/diec /build/diec && \
-    ldd /build/diec | awk 'NF == 4 { system("cp " $3 " /build") }' && \
-    rm /build/libc.so.6 /build/libpthread.so.0 /build/libdl.so.2 /build/libgcc_s.so.1 /build/libm.so.6
+    cp build/release/diec /build
 
-# Download databases
-RUN wget -c -P /build \
-    https://github.com/horsicq/Detect-It-Easy/releases/download/current-database/db.zip \
-    https://github.com/horsicq/Detect-It-Easy/releases/download/current-database/db_extra.zip && \
-    unzip /build/db.zip -d /build && \
-    unzip /build/db_extra.zip -d /build && \
-    rm /build/db.zip /build/db_extra.zip
+# Use ldd to find all dependencies and copy them to /build
+RUN ldd build/release/diec | grep "=> /" | awk '{print $3}' | xargs -I {} cp -v {} /build
+
+# Copy database
+RUN cp -r Detect-It-Easy/db /build
 
 COPY scripts/run_diec.sh /build
 
@@ -47,6 +48,9 @@ FROM debian:bullseye AS buildroot
 # Copy v86 buildroot board config into image
 COPY ./buildroot-v86 /buildroot-v86
 COPY --from=builder /build /buildroot-v86/board/v86/rootfs_overlay/die_build
+
+# Copy ld-musl-i386.so.1 to /lib
+COPY --from=builder /build/ld-musl-i386.so.1 /buildroot-v86/board/v86/rootfs_overlay/lib/ld-musl-i386.so.1
 
 RUN dpkg --add-architecture i386 && \
     apt-get update && \
@@ -78,8 +82,7 @@ WORKDIR /v86
 
 RUN wget -c https://github.com/copy/v86/releases/download/latest/v86.wasm && \
     wget -c https://github.com/copy/v86/releases/download/latest/libv86.js && \
-    wget -c https://github.com/copy/v86/raw/refs/heads/master/bios/seabios.bin && \
-    wget -c https://github.com/copy/v86/raw/refs/heads/master/bios/vgabios.bin
+    wget -c https://github.com/copy/v86/raw/refs/heads/master/bios/seabios.bin
 
 COPY --from=buildroot /build/rootfs.cpio /build/bzImage /build/licenses.tar.gz /v86
 

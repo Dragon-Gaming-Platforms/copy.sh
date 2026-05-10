@@ -53,6 +53,7 @@ function getDieFlags() {
 function analyzeFileTemplateWithCallback(fileName) {
     const uploadSection = document.getElementById("upload-section");
     const analysisSection = document.getElementById("analysis-section");
+    const againBtn = document.getElementById("again-btn");
 
     const detectsStage = document.getElementById("detects-content"),
         infoStage = document.getElementById("info-content"),
@@ -75,9 +76,7 @@ function analyzeFileTemplateWithCallback(fileName) {
         document.getElementById("elapsed-time").textContent = elapsedSeconds;
     }, 100);
 
-    let completedStages = 0;
-
-    document.getElementById("entrypoint-stage").style.display = "block"
+    let completedStages = 0, isEntrypointPE = false;
 
     // renderDetects, renderInfo, renderHashes are from renderer.js
     const callback = (type, res) => {
@@ -102,28 +101,39 @@ function analyzeFileTemplateWithCallback(fileName) {
                 renderStrings(res, stringsStage);
                 completedStages++;
                 break;
-            case "entrypoint":
+            case "entrypointPE":
                 if (res) {
                     entrypointStage.innerHTML = renderEntrypoint(res);
+                    isEntrypointPE = true;
+                    completedStages += 2;
+                    againBtn.disabled = true;
                 } else {
-                    document.getElementById("entrypoint-stage").style.display = "none";
+                    completedStages++;
+                }
+                break;
+            case "entrypointELF":
+                if (res) {
+                    entrypointStage.innerHTML = renderEntrypoint(res);
+                } else if (!isEntrypointPE) {
+                    entrypointStage.style.display = "none";
                 }
                 completedStages++;
+                againBtn.disabled = false;
                 break;
             case "sections":
                 if (res) {
                     sectionsStage.innerHTML = renderSections(res);
                 } else {
-                    document.getElementById("sections-stage").style.display = "none";
+                    sectionsStage.style.display = "none";
                 }
                 completedStages++;
                 break;
         }
 
         // If analysis is done
-        if (completedStages == 7) {
+        if (completedStages == 8) {
             clearInterval(timerInterval);
-            document.getElementById("again-btn").style.display = "block";
+            againBtn.style.display = "block";
         }
     };
 
@@ -152,6 +162,10 @@ window.onload = () => {
     document.getElementById("again-btn").onclick = () => {
         analysisSection.style.display = "none";
         uploadSection.style.display = "block";
+
+        document.getElementById("sections-stage").style.display = "block";
+        document.getElementById("entrypoint-stage").style.display = "block";
+
         document.getElementById("again-btn").style.display = "none";
         document.getElementById("detects-content").innerHTML = spinner;
         document.getElementById("info-content").innerHTML = spinner;
@@ -168,11 +182,8 @@ window.onload = () => {
         bios: {
             url: "seabios.bin",
         },
-        vga_bios: {
-            url: "vgabios.bin",
-        },
         initial_state: {
-            url: "v86state.zst"
+            url: "v86state.bin.zst"
         },
     });
 

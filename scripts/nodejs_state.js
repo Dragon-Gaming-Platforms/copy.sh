@@ -9,7 +9,6 @@ const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 var emulator = new V86({
     wasm_path: path.join(__dirname, "v86.wasm"),
     bios: { url: path.join(__dirname, "seabios.bin") },
-    vga_bios: { url: path.join(__dirname, "vgabios.bin") },
     autostart: true,
     memory_size: 512 * 1024 * 1024,
     vga_memory_size: 8 * 1024 * 1024,

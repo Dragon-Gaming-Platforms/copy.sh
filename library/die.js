@@ -1,6 +1,6 @@
 class DIEInBrowser {
     static SHARED_FILE_NAME = "file.bin";
-    static DIE_BASE_COMMAND = "./run_diec.sh -C db_extra";
+    static DIE_BASE_COMMAND = "./run_diec.sh";
 
     constructor(config) {
         // Creating emulator
@@ -45,137 +45,131 @@ class DIEInBrowser {
         });
     }
 
-    analyzeAdditionalInfo(path, methodsList, callback) {
-        // Entry point (PE)
-        if (methodsList.includes("IMAGE_NT_HEADERS")) {
-            this.runCommand(`${DIEInBrowser.DIE_BASE_COMMAND} ${path} -j -S "IMAGE_NT_HEADERS"`, imageNtHeaders => {
-                try {
-                    imageNtHeaders = JSON.parse(imageNtHeaders);
-                    let baseAddress = "", entrypoint = "";
-                    if (imageNtHeaders?.data?.IMAGE_NT_HEADERS?.IMAGE_OPTIONAL_HEADER?.AddressOfEntryPoint) {
-                        entrypoint = imageNtHeaders.data.IMAGE_NT_HEADERS.IMAGE_OPTIONAL_HEADER.AddressOfEntryPoint;
-                    }
-                    if (imageNtHeaders?.data?.IMAGE_NT_HEADERS?.IMAGE_OPTIONAL_HEADER?.ImageBase) {
-                        baseAddress = imageNtHeaders.data.IMAGE_NT_HEADERS.IMAGE_OPTIONAL_HEADER.ImageBase;
-                    }
-                    imageNtHeaders = {
-                        "Base address": baseAddress,
-                        "Entry point": entrypoint
-                    };
-                } catch (e) {
-                    imageNtHeaders = {
-                        error: String(e),
-                        raw: imageNtHeaders
-                    };
-                }
-                callback("entrypoint", imageNtHeaders);
-                // Sections (PE)
-                if (methodsList.includes("IMAGE_SECTION_HEADER")) {
-                    this.runCommand(`${DIEInBrowser.DIE_BASE_COMMAND} ${path} -j -S "IMAGE_SECTION_HEADER"`, imageSectionHeader => {
-                        try {
-                            imageSectionHeader = JSON.parse(imageSectionHeader.slice(imageSectionHeader.indexOf("{")).trimStart());
-                        } catch (e) {
-                            imageSectionHeader = {
-                                error: String(e),
-                                raw: imageSectionHeader
-                            };
-                        }
-                        callback("sections", imageSectionHeader);
-                    });
-                }
-            });
-        }
+    analyzeAdditionalInfo(path, callback) {
+        // We'll be iterating over this array to find suitable methods
+        const methodsArr = ["IMAGE_SECTION_HEADER", "IMAGE_NT_HEADERS", "Elf_Ehdr"];
+        const callbackTypes = ["sections", "entrypointPE", "entrypointELF"];
 
-        // Entry point (ELF)
-        if (methodsList.includes("Elf_Ehdr")) {
-            this.runCommand(`${DIEInBrowser.DIE_BASE_COMMAND} ${path} -j -S "Elf_Ehdr"`, elfEhdr => {
-                try {
-                    elfEhdr = JSON.parse(elfEhdr);
-                    if (elfEhdr?.data?.Elf_Ehdr?.entry) {
-                        elfEhdr = {
-                            "Entry point": elfEhdr.data.Elf_Ehdr.entry
-                        };
-                    }
-                } catch (e) {
-                    elfEhdr = {
-                        error: String(e),
-                        raw: elfEhdr
+        const methodProcessCallback = () => {
+            if (methodsArr.length != 0) {
+                const methodName = methodsArr.shift();
+                const callbackType = callbackTypes.shift();
+
+                this.runCommand(`${DIEInBrowser.DIE_BASE_COMMAND} ${path} -j -S "${methodName}"`, methodOutput => {
+                    try {
+                        methodOutput = JSON.parse(methodOutput.slice(methodOutput.indexOf("{")).trimStart());
+                        methodOutput = methodOutput?.data;
+
+                        if (methodOutput) {
+                            switch (methodName) {
+                                // Entry point (PE)
+                                case "IMAGE_NT_HEADERS": {
+                                    let baseAddress = "", entrypoint = "";
+                                    if (methodOutput?.IMAGE_NT_HEADERS?.IMAGE_OPTIONAL_HEADER?.AddressOfEntryPoint) {
+                                        entrypoint = methodOutput.IMAGE_NT_HEADERS.IMAGE_OPTIONAL_HEADER.AddressOfEntryPoint;
+                                    }
+                                    if (methodOutput?.IMAGE_NT_HEADERS?.IMAGE_OPTIONAL_HEADER?.ImageBase) {
+                                        baseAddress = methodOutput.IMAGE_NT_HEADERS.IMAGE_OPTIONAL_HEADER.ImageBase;
+                                    }
+                                    callback(callbackType, {
+                                        "Base address": baseAddress,
+                                        "Entry point": entrypoint
+                                    });
+                                    break;
+                                }
+
+                                // Sections (PE)
+                                case "IMAGE_SECTION_HEADER": {
+                                    callback(callbackType, methodOutput);
+                                    break;
+                                }
+
+                                // Entry point (ELF)
+                                case "Elf_Ehdr": {
+                                    if (methodOutput?.Elf_Ehdr?.entry) {
+                                        callback(callbackType, {
+                                            "Entry point": methodOutput.Elf_Ehdr.entry
+                                        });
+                                    }
+                                    break;
+                                }
+
+                                default:
+                                    break;
+                            }
+                        } else {
+                            callback(callbackType, null);
+                        }
+                    } catch (e) {
+                        callback(callbackType, {
+                            error: String(e),
+                            raw: methodOutput
+                        });
                     };
-                }
-                callback("entrypoint", elfEhdr);
-            });
-        }
+
+                    methodProcessCallback();
+                });
+            }
+        };
+
+        methodProcessCallback();
     }
 
     analyzeFile(path, flags, callback) {
-        // Finds additional diec methods
-        this.runCommand(`${DIEInBrowser.DIE_BASE_COMMAND} ${path} -m`, methodsRaw => {
-            const methodsList = methodsRaw.split("\n").slice(5).map(s => s.trim());
-
-            // If there are no sections in file (only in PE format)
-            if (!methodsList.includes("IMAGE_SECTION_HEADER")) {
-                callback("sections", null);
+        // Detects
+        this.runCommand(`${DIEInBrowser.DIE_BASE_COMMAND} -bj${flags} ${path}`, detects => {
+            try {
+                detects = JSON.parse(detects.slice(detects.indexOf("{")).trimStart());
+            } catch (e) {
+                detects = {
+                    error: String(e),
+                    raw: detects
+                };
             }
-            // If there are no entrypoints in file
-            if (!methodsList.includes("IMAGE_NT_HEADERS") && !methodsList.includes("Elf_Ehdr")) {
-                callback("entrypoint", null);
-            }
+            callback("detects", detects);
 
-            // Detects
-            this.runCommand(`${DIEInBrowser.DIE_BASE_COMMAND} -bj${flags} ${path}`, detects => {
+            // Info
+            this.runCommand(`${DIEInBrowser.DIE_BASE_COMMAND} -ij ${path}`, info => {
                 try {
-                    detects = JSON.parse(detects.slice(detects.indexOf("{")).trimStart());
+                    info = JSON.parse(info);
                 } catch (e) {
-                    detects = {
+                    info = {
                         error: String(e),
-                        raw: detects
+                        raw: info
                     };
                 }
-                callback("detects", detects);
+                callback("info", info);
 
-                // Info
-                this.runCommand(`${DIEInBrowser.DIE_BASE_COMMAND} -ij ${path}`, info => {
+                // Hashes
+                this.runCommand(`${DIEInBrowser.DIE_BASE_COMMAND} -j -S "Hash" ${path}`, hashes => {
                     try {
-                        info = JSON.parse(info);
+                        hashes = JSON.parse(hashes);
                     } catch (e) {
-                        info = {
+                        hashes = {
                             error: String(e),
-                            raw: info
+                            raw: hashes
                         };
                     }
-                    callback("info", info);
+                    callback("hashes", hashes);
 
-                    // Hashes
-                    this.runCommand(`${DIEInBrowser.DIE_BASE_COMMAND} -j -S "Hash" ${path}`, hashes => {
+                    // Entropy
+                    this.runCommand(`${DIEInBrowser.DIE_BASE_COMMAND} -j -S "Entropy" ${path}`, entropy => {
                         try {
-                            hashes = JSON.parse(hashes);
+                            entropy = JSON.parse(entropy);
                         } catch (e) {
-                            hashes = {
+                            entropy = {
                                 error: String(e),
-                                raw: hashes
+                                raw: entropy
                             };
                         }
-                        callback("hashes", hashes);
+                        callback("entropy", entropy);
 
-                        // Entropy
-                        this.runCommand(`${DIEInBrowser.DIE_BASE_COMMAND} -j -S "Entropy" ${path}`, entropy => {
-                            try {
-                                entropy = JSON.parse(entropy);
-                            } catch (e) {
-                                entropy = {
-                                    error: String(e),
-                                    raw: entropy
-                                };
-                            }
-                            callback("entropy", entropy);
+                        // Strings
+                        this.runCommand(`strings -t x ${path} | base64`, strings => {
+                            callback("strings", atob(strings))
 
-                            // Strings
-                            this.runCommand(`strings -t x ${path} | base64`, strings => {
-                                callback("strings", atob(strings))
-
-                                // Analyze additional info in binary
-                                this.analyzeAdditionalInfo(path, methodsList, callback);
-                            });
+                            // Analyze additional info in the file
+                            this.analyzeAdditionalInfo(path, callback);
                         });
                     });
                 });

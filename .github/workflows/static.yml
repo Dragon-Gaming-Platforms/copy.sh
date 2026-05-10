@@ -37,20 +37,10 @@ jobs:
         run: |
           cp ./library/die.js ./demo/die.js
 
-          # libv86.js
-          curl -L -o ./demo/libv86.js https://github.com/xoreaxlmbdx/die-in-browser/releases/download/1.1.0/libv86.js
-
-          # seabios.bin
-          curl -L -o ./demo/seabios.bin https://github.com/xoreaxlmbdx/die-in-browser/releases/download/1.1.0/seabios.bin
-
-          # v86.wasm
-          curl -L -o ./demo/v86.wasm https://github.com/xoreaxlmbdx/die-in-browser/releases/download/1.1.0/v86.wasm
-
-          # v86state.zst
-          curl -L -o ./demo/v86state.zst https://github.com/xoreaxlmbdx/die-in-browser/releases/download/1.1.0/v86state.zst
-
-          # vgabios.bin
-          curl -L -o ./demo/vgabios.bin https://github.com/xoreaxlmbdx/die-in-browser/releases/download/1.1.0/vgabios.bin
+          curl -L -o ./demo/libv86.js https://github.com/xoreaxlmbdx/die-in-browser/releases/download/3.2.1/libv86.js
+          curl -L -o ./demo/seabios.bin https://github.com/xoreaxlmbdx/die-in-browser/releases/download/3.2.1/seabios.bin
+          curl -L -o ./demo/v86.wasm https://github.com/xoreaxlmbdx/die-in-browser/releases/download/3.2.1/v86.wasm
+          curl -L -o ./demo/v86state.bin.zst https://github.com/xoreaxlmbdx/die-in-browser/releases/download/3.2.1/v86state.bin.zst
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
