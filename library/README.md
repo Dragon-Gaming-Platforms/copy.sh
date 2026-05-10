@@ -61,7 +61,7 @@ Parameters:
   - `"hashes"`: MD4, MD5, SHA1, SHA224, SHA256, SHA384, SHA512
   - `"entropy"`: file entropy
   - `"strings"`: extracted strings (a table of strings and their offsets)
-  - `"entrypoint"`: entry point address (base address and entry point for PE
+  - `"entrypointELF"`, `"entrypointPE"`: entry point address (base address and entry point for PE
     files)
   - `"sections"`: section table (PE only)
 
@@ -89,23 +89,20 @@ detectItEasy.createFileAndAnalyze(bytes, "rd", (type, res) => {
 });
 ```
 
-### `analyzeAdditionalInfo(path, methodsList, callback)`
+### `analyzeAdditionalInfo(path, callback)`
 
 Fetches **low-level structural details** of a binary (like entry point or
 section headers) using format-specific `diec` methods.
 
 This method is called internally by `analyzeFile` after the main analysis
-completes. It only runs methods that are **actually applicable** to the file
-(methods are fetched via `diec -m`).
+completes. It only uses DIE methods (or structures) that are **actually applicable** to the file.
 
 Parameters:
 
 - `path` - path to the file inside the emulator.
-- `methodsList` - array of available scanner names (e.g., `"IMAGE_NT_HEADERS"`,
-  `"Elf_Ehdr"`).
 - `callback(type, data)` - same callback as in `analyzeFile`; will be called
   with:
-  - `"entrypoint"` - entry point (and image base for PE files)
+  - `"entrypointELF"`, `"entrypointPE"` - entry point for ELF (and image base for PE files)
   - `"sections"` - section table (PE only)
 
 You usually **don’t need to call this directly** unless you're doing custom
