@@ -115,7 +115,7 @@ function analyzeFileTemplateWithCallback(fileName) {
                 if (res) {
                     entrypointStage.innerHTML = renderEntrypoint(res);
                 } else if (!isEntrypointPE) {
-                    entrypointStage.style.display = "none";
+                    document.getElementById("entrypoint-stage").style.display = "none";
                 }
                 completedStages++;
                 againBtn.disabled = false;
@@ -124,7 +124,7 @@ function analyzeFileTemplateWithCallback(fileName) {
                 if (res) {
                     sectionsStage.innerHTML = renderSections(res);
                 } else {
-                    sectionsStage.style.display = "none";
+                    document.getElementById("sections-stage").style.display = "none";
                 }
                 completedStages++;
                 break;
