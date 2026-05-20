@@ -2,9 +2,14 @@
 
 ## Methods
 
-### `constructor(config)`
+### `constructor(config, startEmulator)`
 
 Creates a new instance of `DIEInBrowser`.
+
+Parameters:
+
+- `config` - v86 configuration
+- `startEmulator` - start the emulator or not
 
 Example:
 
@@ -20,7 +25,7 @@ const detectItEasy = window.DIE = new DIEInBrowser({
   initial_state: {
     url: "v86state.bin.zst",
   },
-});
+}, true);
 ```
 
 ### `runCommand(command, callback)`
@@ -37,73 +42,58 @@ detectItEasy.runCommand("./run_diec.sh -v", console.log);
 // Output: "die 3.10"
 ```
 
-### `analyzeFile(path, flags, callback)`
+### `createFile(bytes)`
 
-Runs a full analysis of a file inside the emulator using `diec` (Detect It Easy
-in console).
-
-This method:
-
-1. Discovers which analysis methods are available for the file (e.g., PE
-   sections, ELF headers).
-2. Collects **detections**, **file info**, **hashes**, **entropy**, and
-   **strings**.
-3. Additionally fetches **entry point** and **sections (only for PE files)**
-4. Calls `callback(type, data)` **multiple times**, once for each result type.
-
-Parameters:
-
-- `path` - path to the file inside the emulator (e.g., `/mnt/file.bin`).
-- `flags` - extra `diec` flags (e.g., `d` for deep scan).
-- `callback(type, data)` - receives results incrementally:
-  - `"detects"`: main detections (via `diec`)
-  - `"info"`: file type, architecture, etc. (via `diec`)
-  - `"hashes"`: MD4, MD5, SHA1, SHA224, SHA256, SHA384, SHA512
-  - `"entropy"`: file entropy
-  - `"strings"`: extracted strings (a table of strings and their offsets)
-  - `"entrypointELF"`, `"entrypointPE"`: entry point address (base address and entry point for PE
-    files)
-  - `"sections"`: section table (PE only)
-
-Example:
-
-```js
-detectItEasy.analyzeFile("diec", "rd", (type, res) => {
-  console.log(type, res);
-});
-```
-
-### `createFileAndAnalyze(bytes, flags, callback)`
-
-Uploads a file into the emulator and immediately calls `analyzeFile` on it.
+Uploads a file into the emulator.
 
 - `bytes` - file content as a `Uint8Array`.
-- Other parameters are identical to `analyzeFile`.
 
-Example:
+## Methods that require v86 emulator
 
-```js
-const bytes = ...;
-detectItEasy.createFileAndAnalyze(bytes, "rd", (type, res) => {
-  console.log(type, res);
-});
-```
+### `fetchSections(callback)`
 
-### `analyzeAdditionalInfo(path, callback)`
+Fetches file sections, or returns null if there are none.
 
-Fetches **low-level structural details** of a binary (like entry point or
-section headers) using format-specific `diec` methods.
+DIE command: `diec file.bin -j -S "IMAGE_SECTION_HEADER"`
 
-This method is called internally by `analyzeFile` after the main analysis
-completes. It only uses DIE methods (or structures) that are **actually applicable** to the file.
+### `fetchEntrypointPE(callback)`
 
-Parameters:
+Fetches PE file entrypoint, or returns null if file isn't PE.
 
-- `path` - path to the file inside the emulator.
-- `callback(type, data)` - same callback as in `analyzeFile`; will be called
-  with:
-  - `"entrypointELF"`, `"entrypointPE"` - entry point for ELF (and image base for PE files)
-  - `"sections"` - section table (PE only)
+DIE command: `diec file.bin -j -S "IMAGE_NT_HEADERS"`
 
-You usually **don’t need to call this directly** unless you're doing custom
-analysis.
+### `fetchEntrypointELF(callback)`
+
+Fetches ELF file entrypoint, or returns null if file isn't ELF.
+
+DIE command: `diec file.bin -j -S "Elf_Ehdr"`
+
+### `fetchDetects(flags, callback)`
+
+Fetches file detects.
+
+DIE command: `diec -bj${flags} file.bin`
+
+### `fetchInfo(callback)`
+
+Fetches file info.
+
+DIE command: `diec -ij file.bin`
+
+### `fetchHashes(callback)`
+
+Fetches file hashes.
+
+DIE command: `diec file.bin -j -S "Hash"`
+
+### `fetchEntropy(callback)`
+
+Fetches file entropy.
+
+DIE command: `diec -ej file.bin`
+
+## Methods that don't require v86 emulator
+
+### `fetchStrings(callback)`
+
+Extracts strings from file without using 'strings' in emulator.

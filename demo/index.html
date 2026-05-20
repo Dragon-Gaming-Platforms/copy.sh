@@ -3,13 +3,12 @@
 <html>
 
 <head>
-    <script src="libv86.js"></script>
     <script src="main.js"></script>
     <script src="renderer.js"></script>
-    <script src="die.js"></script>
+    <script src="utils.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="styles.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/light.min.css">
+    <link href="water.light.min.css" rel="stylesheet">
 </head>
 
 <body>
@@ -30,6 +29,20 @@
             <input type="file" id="file-input" accept="*/*" disabled />
         </label>
         <hr>
+
+        <div style="text-align: center;">
+            <label>
+                <input checked type="radio" name="analysis" value="parallel" />
+                Parallel analysis <small>(<strong>Fast</strong> &#8226; High resource usage &#8226; All stages run
+                    together)</small>
+            </label><br>
+            <label>
+                <input type="radio" name="analysis" value="sequential" />
+                Sequential analysis <small>(<strong>Slow</strong> &#8226; Low resource usage &#8226; Stages run one by
+                    one)</small>
+            </label>
+        </div>
+
         <div style="text-align: center;">
             <label>
                 <input type="checkbox" id="opt-recursive">

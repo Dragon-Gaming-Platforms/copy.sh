@@ -1,17 +1,4 @@
-let detectItEasy = null;
-
-// Converts file to Uint8Array
-function fileToUint8Array(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-            const uint8Array = new Uint8Array(reader.result);
-            resolve(uint8Array);
-        };
-        reader.onerror = () => reject(reader.error);
-        reader.readAsArrayBuffer(file);
-    });
-}
+let biosArrayBuffer = null, stateArrayBuffer = null, wasmArrayBuffer = null;
 
 // Setups upload
 function setupUpload() {
@@ -39,16 +26,6 @@ function setupUpload() {
     window.addEventListener("drop", (e) => e.preventDefault());
 }
 
-function getDieFlags() {
-    const flags = [];
-    if (document.getElementById("opt-recursive").checked) flags.push("r");
-    if (document.getElementById("opt-deep").checked) flags.push("d");
-    if (document.getElementById("opt-heuristic").checked) flags.push("u");
-    if (document.getElementById("opt-aggressive").checked) flags.push("g");
-    if (document.getElementById("opt-alltypes").checked) flags.push("a");
-    return flags.join("");
-}
-
 // It's called in analyzeFile
 function analyzeFileTemplateWithCallback(fileName) {
     const uploadSection = document.getElementById("upload-section");
@@ -68,7 +45,7 @@ function analyzeFileTemplateWithCallback(fileName) {
     uploadSection.style.display = "none";
     analysisSection.style.display = "block";
 
-    // Start timer
+    // Starts a timer
     const startTime = Date.now();
     const timerInterval = setInterval(() => {
         const elapsedMs = Date.now() - startTime;
@@ -78,7 +55,7 @@ function analyzeFileTemplateWithCallback(fileName) {
 
     let completedStages = 0, isEntrypointPE = false;
 
-    // renderDetects, renderInfo, renderHashes are from renderer.js
+    // render... functions are from renderer.js
     const callback = (type, res) => {
         switch (type) {
             case "detects":
@@ -94,7 +71,7 @@ function analyzeFileTemplateWithCallback(fileName) {
                 completedStages++;
                 break;
             case "entropy":
-                entropyStage.innerHTML = `<code>${res.data ? res.data.Entropy : ""}</code>`;
+                entropyStage.innerHTML = renderEntropy(res);
                 completedStages++;
                 break;
             case "strings":
@@ -105,11 +82,8 @@ function analyzeFileTemplateWithCallback(fileName) {
                 if (res) {
                     entrypointStage.innerHTML = renderEntrypoint(res);
                     isEntrypointPE = true;
-                    completedStages += 2;
-                    againBtn.disabled = true;
-                } else {
-                    completedStages++;
                 }
+                completedStages++;
                 break;
             case "entrypointELF":
                 if (res) {
@@ -118,7 +92,6 @@ function analyzeFileTemplateWithCallback(fileName) {
                     document.getElementById("entrypoint-stage").style.display = "none";
                 }
                 completedStages++;
-                againBtn.disabled = false;
                 break;
             case "sections":
                 if (res) {
@@ -140,24 +113,93 @@ function analyzeFileTemplateWithCallback(fileName) {
     return callback;
 }
 
-// Analyses file
-function analyzeFile(file) {
-    if (detectItEasy) {
-        fileToUint8Array(file).then(bytes => {
-            const cb = analyzeFileTemplateWithCallback(file.name);
-            detectItEasy.createFileAndAnalyze(bytes, getDieFlags(), cb);
-        })
-    }
+const analysisTypes = ["detects", "info", "entropy", "sections", "entrypointPE", "entrypointELF", "hashes", "strings"];
+
+function createAnalysisWorker(type, bytes) {
+    const worker = new Worker("analysisWorker.js");
+    worker.postMessage({
+        type,
+        data: {
+            flags: getDieFlags(),
+            bytes,
+            biosBytes: biosArrayBuffer,
+            stateBytes: stateArrayBuffer,
+            wasmBytes: wasmArrayBuffer
+        }
+    });
+    return worker;
 }
 
-// Formats bytes to KBs or MBs
-function formatBytes(bytes) {
-    if (bytes < 1024 * 1024) {
-        const kb = bytes / 1024;
-        return `${kb.toFixed(2)} KB`;
+// Parallel analysis (faster, all stages run together)
+function parallelAnalysis(cb, bytes) {
+    // Creating a worker with V86 instance for each analysis type, so we don't need to wait much and we can terminate the worker easily
+    analysisTypes.forEach(type => {
+        const worker = createAnalysisWorker(type, bytes);
+
+        worker.onmessage = (e) => {
+            const data = e.data;
+            if (data.type === "finished") {
+                worker.terminate();
+            } else {
+                cb(data.type, data.data);
+            }
+        };
+    });
+}
+
+// Sequential analysis (slower, stages run one by one)
+function sequentialAnalysis(cb, bytes) {
+    let typesArr = analysisTypes;
+
+    const analysisProcessCallback = () => {
+        if (typesArr.length != 0) {
+            const type = typesArr.shift();
+
+            const worker = createAnalysisWorker(type, bytes);
+
+            worker.onmessage = (e) => {
+                const data = e.data;
+                if (data.type === "finished") {
+                    worker.terminate();
+                    analysisProcessCallback();
+                } else {
+                    cb(data.type, data.data);
+                }
+            };
+        }
+    };
+
+    analysisProcessCallback();
+}
+
+// Analyses file
+function analyzeFile(file) {
+    fileToUint8Array(file).then(bytes => {
+        const cb = analyzeFileTemplateWithCallback(file.name);
+
+        if (document.querySelector('input[name="analysis"]:checked').value === "parallel") {
+            parallelAnalysis(cb, bytes);
+        } else {
+            sequentialAnalysis(cb, bytes);
+        }
+    });
+}
+
+// Shows download progress
+function showDownloadProgress(e) {
+    const emulatorDownloadProgress = document.getElementById("emulator-download-progress");
+    const progress = e.progress;
+    if (progress.target.status === 200) {
+        const percent = Math.round((progress.loaded / progress.total) * 100);
+
+        const loadedStr = formatBytes(progress.loaded);
+        const totalStr = formatBytes(progress.total);
+
+        document.getElementById("download-progress-big").innerHTML = `File <strong>${e.filename}</strong>`
+        document.getElementById("download-progress-small").innerHTML = `${percent}% (${loadedStr} / ${totalStr})`
+        document.getElementById("download-progress-bar").style.width = `${percent}%`;
     } else {
-        const mb = bytes / (1024 * 1024);
-        return `${mb.toFixed(2)} MB`;
+        emulatorDownloadProgress.innerHTML = `Loading <strong>${e.filename}</strong> failed. Check your connection and reload the page to try again.`;
     }
 }
 
@@ -187,40 +229,29 @@ window.onload = () => {
         document.getElementById("sections-content").innerHTML = spinner;
     };
 
-    // Creating emulator
-    detectItEasy = window.DIE = new DIEInBrowser({
-        wasm_path: "v86.wasm",
-        bios: {
-            url: "seabios.bin",
+    // Loads files
+    load_file("v86.wasm", {
+        done: wasmBytes => {
+            load_file("seabios.bin", {
+                done: biosBytes => {
+                    load_file("v86state.bin.zst", {
+                        done: stateBytes => {
+                            emulatorDownloadProgress.style.display = "none";
+                            uploadSection.style.opacity = "1";
+                            uploadSection.style.pointerEvents = "auto";
+                            fileInput.disabled = false;
+                            setupUpload();
+
+                            biosArrayBuffer = biosBytes;
+                            stateArrayBuffer = stateBytes;
+                            wasmArrayBuffer = wasmBytes;
+                        },
+                        progress: showDownloadProgress
+                    })
+                },
+                progress: showDownloadProgress
+            })
         },
-        initial_state: {
-            url: "v86state.bin.zst"
-        },
-    });
-
-    // On download progress
-    emulator.add_listener("download-progress", (e) => {
-        const percent = Math.round((e.loaded / e.total) * 100);
-
-        const loadedStr = formatBytes(e.loaded);
-        const totalStr = formatBytes(e.total);
-
-        document.getElementById("download-progress-big").innerHTML = `File ${e.file_index + 1}/${e.file_count}: <strong>${e.file_name}</strong>`
-        document.getElementById("download-progress-small").innerHTML = `${percent}% (${loadedStr} / ${totalStr})`
-        document.getElementById("download-progress-bar").style.width = `${percent}%`;
-    });
-
-    // On download error
-    detectItEasy.emulator.add_listener("download-error", (e) => {
-        emulatorDownloadProgress.innerHTML = `Loading <strong>${e.file_name}</strong> failed. Check your connection and reload the page to try again.`;
-    });
-
-    // Emulator ready
-    detectItEasy.emulator.add_listener("emulator-ready", () => {
-        emulatorDownloadProgress.style.display = "none";
-        uploadSection.style.opacity = "1";
-        uploadSection.style.pointerEvents = "auto";
-        fileInput.disabled = false;
-        setupUpload();
-    });
+        progress: showDownloadProgress
+    })
 }

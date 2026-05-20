@@ -10,8 +10,7 @@ var emulator = new V86({
     wasm_path: path.join(__dirname, "v86.wasm"),
     bios: { url: path.join(__dirname, "seabios.bin") },
     autostart: true,
-    memory_size: 512 * 1024 * 1024,
-    vga_memory_size: 8 * 1024 * 1024,
+    memory_size: 128 * 1024 * 1024,
     initrd: { url: path.join(__dirname, "rootfs.cpio.gz") },
     bzimage: { url: path.join(__dirname, "bzImage") },
     filesystem: {}
@@ -40,7 +39,7 @@ emulator.add_listener("serial0-output-byte", function (byte) {
         setTimeout(async function () {
             const s = await emulator.save_state();
 
-            fs.writeFile("./buildroot-state.bin", new Uint8Array(s), function (e) {
+            fs.writeFile("./v86state.bin.zst", new Uint8Array(s), function (e) {
                 if (e) throw e;
                 console.log("Saved");
                 emulator.destroy();

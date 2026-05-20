@@ -3,14 +3,15 @@
 **All analysis happens locally in your browser — no files are ever sent to a
 server.**
 
+This demo uses **Web Workers** to run v86 emulators with DIE.
+
 To run this demo locally, your directory must contain the following files:
 
 - `libv86.js`
 - `die.js`
 - `v86.wasm`
 - `seabios.bin`
-- `vgabios.bin`
-- `v86state.zst`
+- `v86state.bin.zst`
 
 > 💡 These files are placed in the same directory as `index.html`.
 

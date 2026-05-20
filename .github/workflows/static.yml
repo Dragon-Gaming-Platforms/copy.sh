@@ -3,8 +3,8 @@ name: Deploy static content to Pages
 
 on:
   # Runs on pushes targeting the default branch
-  push:
-    branches: ["main"]
+  # push:
+  #   branches: ["main"]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -37,14 +37,13 @@ jobs:
         run: |
           cp ./library/die.js ./demo/die.js
 
-          curl -L -o ./demo/libv86.js https://github.com/xoreaxlmbdx/die-in-browser/releases/download/3.2.1/libv86.js
-          curl -L -o ./demo/seabios.bin https://github.com/xoreaxlmbdx/die-in-browser/releases/download/3.2.1/seabios.bin
-          curl -L -o ./demo/v86.wasm https://github.com/xoreaxlmbdx/die-in-browser/releases/download/3.2.1/v86.wasm
-          curl -L -o ./demo/v86state.bin.zst https://github.com/xoreaxlmbdx/die-in-browser/releases/download/3.2.1/v86state.bin.zst
+          curl -L -o ./demo/libv86.js https://github.com/xoreaxlmbdx/die-in-browser/releases/download/1.2.0/libv86.js
+          curl -L -o ./demo/seabios.bin https://github.com/xoreaxlmbdx/die-in-browser/releases/download/1.2.0/seabios.bin
+          curl -L -o ./demo/v86.wasm https://github.com/xoreaxlmbdx/die-in-browser/releases/download/1.2.0/v86.wasm
+          curl -L -o ./demo/v86state.bin.zst https://github.com/xoreaxlmbdx/die-in-browser/releases/download/1.2.0/v86state.bin.zst
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          # Upload entire repository
           path: './demo'
       - name: Deploy to GitHub Pages
         id: deployment

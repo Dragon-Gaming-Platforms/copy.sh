@@ -1,4 +1,3 @@
-
 // Escapes HTML
 function escapeHtml(text) {
     return text
@@ -34,7 +33,7 @@ function renderInfo(info) {
     return JSON.stringify(info);
 }
 
-// Returns different text color for every type (https://github.com/horsicq/XScanEngine/blob/master/xscanengine.cpp#L1175) 
+// Returns different text color for every type (https://github.com/horsicq/XScanEngine/blob/2395f04bad2b392a119cc0d2c91a1b37b119b9d0/xscanengine.cpp#L1161) 
 function getDetectedValueStyle(type) {
     type = type.toLowerCase().replaceAll("~", "").replaceAll("!", "");
     if ((type == "installer") || (type == "sfx") || (type == "archive")) {
@@ -132,17 +131,6 @@ function renderEntrypoint(entrypoint) {
 
 // Generates HTML for strings and sets it in container
 function renderStrings(strings, container) {
-    let strIndex = 0;
-    strings = strings.trim().split("\n").map(s => s.trim()).map(s => {
-        const firstSpaceIndex = s.indexOf(" ");
-        if (firstSpaceIndex === -1) {
-            return null;
-        }
-        const offset = s.substring(0, firstSpaceIndex);
-        const str = s.substring(firstSpaceIndex + 1);
-        return { index: strIndex++, offset, str };
-    });
-
     const searchInput = document.createElement("input");
     searchInput.placeholder = "Search";
     const stringsDiv = document.createElement("div");
@@ -216,4 +204,28 @@ function renderSections(sections) {
         return html + `</tbody></table>`;
     }
     return JSON.stringify(sections);
+}
+
+// Generates HTML for entropy
+function renderEntropy(entropy) {
+    if (entropy.total && entropy.status && entropy.records) {
+        let html = `<table><thead><tr>
+        <th>Offset</th>
+        <th>Size</th>
+        <th>Entropy</th>
+        <th>Status</th>
+        <th>Name</th>
+        </tr></thead><tbody>`;
+        entropy.records.forEach(record => {
+            html += `<tr>
+            <td><code>${record.offset.toString(16)}</code></td>
+            <td><code>${record.size.toString(16)}</code></td>
+            <td>${record.entropy}</td>
+            <td><strong>${record.status}</strong></td>
+            <td>${record.name}</td>
+            </tr>`
+        });
+        return `<center>${entropy.total} <strong>(${entropy.status})</strong></center>${html + `</tbody></table>`}`;
+    }
+    return JSON.stringify(entropy);
 }

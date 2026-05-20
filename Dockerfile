@@ -1,6 +1,6 @@
 # --- Stage 1. Builds DIE.
 
-FROM i386/alpine AS builder
+FROM i386/alpine:3.22 AS die-builder
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -14,7 +14,7 @@ RUN apk add --no-cache \
     make \
     bash
 
-# Clones latest DIE
+# Clones DIE
 RUN git clone --recursive --branch 3.21 https://github.com/horsicq/DIE-engine.git
 
 WORKDIR /DIE-engine
@@ -47,10 +47,10 @@ FROM debian:bullseye AS buildroot
 
 # Copy v86 buildroot board config into image
 COPY ./buildroot-v86 /buildroot-v86
-COPY --from=builder /build /buildroot-v86/board/v86/rootfs_overlay/die_build
+COPY --from=die-builder /build /buildroot-v86/board/v86/rootfs_overlay/die_build
 
 # Copy ld-musl-i386.so.1 to /lib
-COPY --from=builder /build/ld-musl-i386.so.1 /buildroot-v86/board/v86/rootfs_overlay/lib/ld-musl-i386.so.1
+COPY --from=die-builder /build/ld-musl-i386.so.1 /buildroot-v86/board/v86/rootfs_overlay/lib/ld-musl-i386.so.1
 
 RUN dpkg --add-architecture i386 && \
     apt-get update && \
@@ -74,16 +74,43 @@ RUN --mount=type=cache,target=/root/.buildroot-ccache \
     cp -r output/images /build && \
     tar -czf /build/licenses.tar.gz licenses
 
-# --- Stage 3. Builds initial state.
+# --- Stage 5. Builds v86
+
+FROM alpine:3.22 AS v86-builder
+
+RUN apk add --update \
+    curl \
+    git \
+    clang \
+    make \
+    openjdk8-jre-base \
+    npm \
+    python3
+
+# Installs Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
+    PATH="${HOME}/.cargo/bin:${PATH}" rustup target add wasm32-unknown-unknown
+
+# Clones v86
+RUN git clone --revision=f7011b0fc46c980f44834d490d4d444b65bec0b5 https://github.com/copy/v86.git
+
+WORKDIR /v86
+
+# Builds v86
+RUN PATH="${HOME}/.cargo/bin:${PATH}" make all
+
+RUN mkdir /v86_build && \
+    cp build/v86.wasm /v86_build && \
+    cp build/libv86.js /v86_build && \
+    cp bios/seabios.bin /v86_build
+
+# --- Stage 4. Builds initial state.
 
 FROM node:bullseye AS initial-state
 
 WORKDIR /v86
 
-RUN wget -c https://github.com/copy/v86/releases/download/latest/v86.wasm && \
-    wget -c https://github.com/copy/v86/releases/download/latest/libv86.js && \
-    wget -c https://github.com/copy/v86/raw/refs/heads/master/bios/seabios.bin
-
+COPY --from=v86-builder /v86_build /v86
 COPY --from=buildroot /build/rootfs.cpio /build/bzImage /build/licenses.tar.gz /v86
 
 RUN apt-get update && \
@@ -98,7 +125,7 @@ RUN node nodejs_state.js && \
     zstd -19 buildroot-state.bin && \
     rm rootfs.cpio.gz bzImage buildroot-state.bin nodejs_state.js
 
-# --- Stage 4. Exports compressed initial state.
+# --- Stage 5. Exports compressed initial state.
 
 FROM scratch AS export
 COPY --from=initial-state /v86 .
